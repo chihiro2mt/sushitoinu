@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>OMG BABY</title>
+<style>
+body {
+    margin:0;
+    height:100vh;
+    overflow:hidden;
+    position:relative;
+    user-select:none;
+    background:black;
+}
+.bg-layer {
+    position:absolute;
+    top:0; left:0;
+    width:100%; height:100%;
+    background-size:cover;
+    background-position:center;
+    background-repeat:no-repeat;
+    z-index:0;
+}
+#toy { position:absolute; cursor:pointer; z-index:2; display:none; }
+#nextBtnImg,#startBtnImg,#retryBtnImg,#soundOnBtnImg {
+    position:absolute; cursor:pointer; z-index:50; width:20%; height:auto; display:none;
+    pointer-events:auto;
+}
+#nextBtnImg { bottom:5%; left:50%; transform:translateX(-50%); }
+#startBtnImg { bottom:40%; left:76%; transform:translateX(-50%); }
+#retryBtnImg { bottom:6%; left:50%; transform:translateX(-50%); }
+#soundOnBtnImg { bottom:42%; left:50%; transform:translateX(-50%); width:14%; }
+
+#ending {
+    display:none; position:absolute; top:0; left:0; width:100%; height:100%; background:black;
+    justify-content:center; align-items:center; z-index:10;
+}
+
+@keyframes shake {
+  0%,100% { transform: translate(0,0); }
+  20% { transform: translate(-10px,5px); }
+  40% { transform: translate(10px,-5px); }
+  60% { transform: translate(-10px,-5px); }
+  80% { transform: translate(10px,5px); }
+}
+.shake { animation: shake 0.5s ease-in-out; }
+</style>
+</head>
+<body>
+
+<!-- 背景レイヤー -->
+<div id="bg1" class="bg-layer"></div>
+<div id="bg2" class="bg-layer"></div>
+
+<img id="toy" alt="モチーフ">
+
+<!-- ボタン画像 -->
+<img id="startBtnImg" src="startBtn.png" alt="スタート">
+<img id="nextBtnImg" src="nextBtn.png" alt="Next">
+<img id="retryBtnImg" src="retryBtn.png" alt="最初に戻る">
+<img id="soundOnBtnImg" src="onbtn.png" alt="音量オン">
+
+<div id="ending"></div>
+
+<!-- BGM -->
+<audio id="bgm" src="bgm.mp3" loop preload="auto" autoplay muted></audio>
+
+<!-- 効果音 -->
+<audio id="se-tissue" src="tissue.mp3" preload="auto"></audio>
+<audio id="se-soap" src="soap.mp3" preload="auto"></audio>
+<audio id="se-phone" src="pipopa.mp3" preload="auto"></audio>
+<audio id="se-lockon" src="bebi.mp3" preload="auto"></audio>
+<audio id="se-hatto" src="hatto.mp3" preload="auto"></audio>
+<audio id="se-okaasan" src="okaasan.mp3" preload="auto"></audio>
+<audio id="se-heya10" src="heya10.mp3" preload="auto"></audio>
+<audio id="se-heya11" src="heya11.mp3" preload="auto"></audio>
+<audio id="se-heya12" src="heya12.mp3" preload="auto"></audio>
+
+<script>
+// ===== ステージデータ =====
+const stages = [
+  { type:"tissue", still:"tissue1.png", alt:"tissue2.png", se:"se-tissue",
+    backgrounds:["heya1.jpg","heya2.jpg","heya3.jpg","heya4.jpg"],
+    pos:{left:"51%", top:"60%", width:"14%", transform:"translate(-50%,-50%)"},
+    lockonImg:"bebi1.jpg"
+  },
+  { type:"soap", still:"soap1.png", alt:"soap2.png", se:"se-soap",
+    backgrounds:["heya5.jpg","heya6.jpg","heya7.jpg","heya8.jpg"],
+    pos:{right:"7%", bottom:"64%", width:"14%", transform:"translate(50%,50%)"},
+    lockonImg:"bebi2.jpg"
+  },
+  { type:"phone", still:"phone1.png", alt:"phone2.png", se:"se-phone",
+    backgrounds:["heya9.jpg","heya10.jpg","heya11.jpg","heya12.jpg"],
+    pos:{left:"10%", top:"39%", width:"14%", transform:"translate(-50%,-50%)"},
+    lockonImg:"bebi3.jpg",
+    bgmSounds:{1:"se-heya10",2:"se-heya11",3:"se-heya12"}
+  }
+];
+
+let currentStage=-1;
+let clickCount=0;
+let currentBg=1;
+const toy = document.getElementById("toy");
+const startBtnImg = document.getElementById("startBtnImg");
+const nextBtnImg  = document.getElementById("nextBtnImg");
+const retryBtnImg = document.getElementById("retryBtnImg");
+const soundOnBtnImg = document.getElementById("soundOnBtnImg");
+const bgm = document.getElementById("bgm");
+
+let activeSounds = [];
+function playSE(id, loop=false){
+    const base = document.getElementById(id);
+    if(!base) return null;
+    const snd = base.cloneNode();
+    snd.loop = !!loop;
+    snd.play().catch(()=>{});
+    activeSounds.push(snd);
+    return snd;
+}
+
+// 背景切替（2レイヤー）
+function setBackground(src){
+    const nextBg = currentBg === 1 ? 2 : 1;
+    const el = document.getElementById("bg"+nextBg);
+    el.style.backgroundImage = `url(${src})`;
+    document.getElementById("bg1").style.zIndex = (nextBg===1?1:0);
+    document.getElementById("bg2").style.zIndex = (nextBg===2?1:0);
+    currentBg = nextBg;
+}
+
+// ==== 修正版 ====
+function setBackgroundWithButton(bgSrc, btnElement){
+    try { setBackground(bgSrc); } catch(e){ console.warn("setBackground failed:", e); }
+    if(btnElement) btnElement.style.display = "inline-block";
+    const preload = new Image();
+    preload.src = bgSrc;
+    preload.onerror = ()=>console.warn("bg preload error:", bgSrc);
+}
+
+// ---- サウンドオン画面 ----
+function showSoundToggle(){
+    setBackground("onryou.jpg");
+    soundOnBtnImg.style.display="inline-block";
+}
+soundOnBtnImg.addEventListener("click", ()=>{
+    console.log("soundOnBtnImg clicked");
+    try {
+        bgm.muted = false;
+        bgm.currentTime = 0;
+        const p = bgm.play();
+        if(p && p.catch) p.catch(err => console.warn("bgm.play() failed:", err));
+    }catch(e){ console.warn("bgm play error:", e); }
+    soundOnBtnImg.style.display="none";
+    setBackgroundWithButton("startbg.jpg", startBtnImg);
+});
+showSoundToggle();
+
+// ---- スタート ----
+startBtnImg.addEventListener("click", ()=>{
+    startBtnImg.style.display="none";
+    nextStage();
+});
+
+// ---- ステージ遷移 ----
+function nextStage(){
+    currentStage++;
+    if(currentStage >= stages.length){
+        showIntermissionBackground("hatto.jpg");
+        return;
+    }
+    showIntermissionBackground(stages[currentStage].lockonImg, true);
+}
+
+// ---- ロックオン/ハッと/お母さん 表示 ----
+function showIntermissionBackground(src){
+    setBackground(src);
+    toy.style.display = "none";
+    nextBtnImg.style.display = "inline-block";
+
+    if(src.includes("bebi")) playSE("se-lockon");
+    if(src.includes("hatto")) playSE("se-hatto");
+
+    if(src === "okaasan.jpg"){
+        playSE("se-okaasan", true);
+        nextBtnImg.style.display = "none";
+
+        document.getElementById("bg1").onclick = null;
+        document.getElementById("bg2").onclick = null;
+
+        const img = new Image();
+        img.onload = ()=>{
+            setBackground("okaasan.jpg");
+            retryBtnImg.style.display = "inline-block";
+            showKC();
+
+            let alt = false;
+            const handler = () => {
+                alt = !alt;
+                const nextSrc = alt ? "okaasan2.jpg" : "okaasan.jpg";
+                setBackground(nextSrc);
+                const visible = document.getElementById("bg"+currentBg);
+                visible.classList.add("shake");
+                setTimeout(()=> visible.classList.remove("shake"), 500);
+                kcClickCount++;
+                if(kcClickCount >= 3) hideKC();
+            };
+            document.getElementById("bg1").onclick = handler;
+            document.getElementById("bg2").onclick = handler;
+        };
+        img.src = "okaasan.jpg";
+    } else {
+        nextBtnImg.onclick = ()=>{
+            nextBtnImg.style.display = "none";
+            if(src === "hatto.jpg"){
+                showIntermissionBackground("okaasan.jpg");
+            } else {
+                startStage(currentStage);
+            }
+        };
+    }
+}
+
+// ---- ステージ開始 ----
+function startStage(index){
+    const stage = stages[index];
+    clickCount = 0;
+    setBackground(stage.backgrounds[0]);
+    toy.src = stage.still;
+    toy.style.display = "block";
+    toy.style.left = toy.style.right = toy.style.top = toy.style.bottom = "";
+    Object.assign(toy.style, stage.pos);
+}
+
+// ---- モチーフクリック ----
+toy.addEventListener("click", ()=>{
+    const stage = stages[currentStage];
+    clickCount++;
+    playSE(stage.se);
+    toy.src = stage.alt;
+    setTimeout(()=>{ if(stages[currentStage]) toy.src = stage.still; }, 100);
+
+    if(clickCount % 10 === 0){
+        const idx = clickCount / 10;
+        if(stage.backgrounds[idx]){
+            setBackground(stage.backgrounds[idx]);
+            if(stage.type === "phone" && stage.bgmSounds && stage.bgmSounds[idx]){
+                playSE(stage.bgmSounds[idx], true);
+            }
+        }
+    }
+    if(clickCount >= 40){
+        toy.style.display = "none";
+        nextStage();
+    }
+});
+
+// ---- リトライ ----
+retryBtnImg.addEventListener("click", ()=>{
+    activeSounds.forEach(snd => { try{ snd.pause(); snd.currentTime = 0; }catch(e){} });
+    activeSounds = [];
+    document.getElementById("bg1").onclick = null;
+    document.getElementById("bg2").onclick = null;
+    currentStage = -1;
+    clickCount = 0;
+    retryBtnImg.style.display = "none";
+    nextBtnImg.style.display = "none";
+    try{ bgm.currentTime = 0; bgm.play(); }catch(e){}
+    setBackgroundWithButton("startbg.jpg", startBtnImg);
+});
+
+// ---- keep clicking ----
+const kcImg = document.createElement("img");
+kcImg.src = "kc.png";
+kcImg.id = "kcImg";
+kcImg.style.position = "absolute";
+kcImg.style.left = "50%";
+kcImg.style.top = "50%";
+kcImg.style.transform = "translate(-50%, -50%)";
+kcImg.style.zIndex = "20";
+kcImg.style.width = "20%";
+kcImg.style.opacity = "0";
+kcImg.style.transition = "opacity 0.5s ease";
+document.body.appendChild(kcImg);
+
+let kcClickCount = 0;
+function showKC() { kcClickCount = 0; kcImg.style.opacity = "1"; }
+function hideKC() { kcImg.style.opacity = "0"; }
+</script>
+</body>
+</html>
